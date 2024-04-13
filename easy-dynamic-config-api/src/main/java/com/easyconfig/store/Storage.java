@@ -1,10 +1,12 @@
 package com.easyconfig.store;
 
 
+import com.easyconfig.builders.Buildable;
+
 /**
  * 配置信息存储
  */
-public interface Storage {
+public interface Storage extends Buildable {
 
     /**
      * 从存储中获取配置
