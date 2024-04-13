@@ -1,0 +1,9 @@
+
+[
+  {"field":"name","fieldType":"String", "fieldValue":"Evan"},
+  {"field":"age","fieldType":"Integer", "fieldValue":18},
+  {"field":"interests","fieldType":"Array", "fieldValue": ["打球、画画"]},
+  {"field":"interests2","fieldType":"Array<Object>", "fieldValue": [{"field":"skill1","fieldType":"String", "fieldValue":"Java"}, {"field":"level","fieldType":"Integer", "fieldValue":999}]},
+  {"field":"skills","fieldType":"Object", "fieldValue": [{"field":"skill1","fieldType":"String", "fieldValue":"Java"}, {"field":"skill2","fieldType":"String", "fieldValue":"Python"}]}
+]
+
