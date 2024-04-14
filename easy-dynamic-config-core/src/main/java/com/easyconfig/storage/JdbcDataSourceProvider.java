@@ -11,9 +11,9 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.logging.Logger;
 
 public class JdbcDataSourceProvider implements DataSourceProvider {
-    private static final String DEFAULT_URL = "jdbc:mysql://localhost:3306/mydb";
+    private static final String DEFAULT_URL = "jdbc:mysql://192.168.1.137:3306/ek?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowMultiQueries=true";
     private static final String DEFAULT_USERNAME = "root";
-    private static final String DEFAULT_PASSWORD = "password";
+    private static final String DEFAULT_PASSWORD = "Evan1234.";
 
     private DataSource dataSource;
 
@@ -22,7 +22,11 @@ public class JdbcDataSourceProvider implements DataSourceProvider {
     }
 
     private DataSource createDataSource(String url, String username, String password) {
-        dataSource = new JdbcDataSource();
+        JdbcDataSource jdbcDataSource = new JdbcDataSource();
+        jdbcDataSource.url = url;
+        jdbcDataSource.username = username;
+        jdbcDataSource.password = password;
+        this.dataSource = jdbcDataSource;
         return dataSource;
     }
 
