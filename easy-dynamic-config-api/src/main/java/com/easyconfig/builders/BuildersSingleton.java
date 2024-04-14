@@ -1,5 +1,6 @@
 package com.easyconfig.builders;
 
+import com.easyconfig.builders.kernel.ConfigLoaderBuilder;
 import com.easyconfig.builders.kernel.KernelBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,8 +16,8 @@ public enum BuildersSingleton {
     // Fallback classes in case the META-INF/services directory is missing
     // Keep this list in alphabetical order by fallback variable name
 
-    private static final String FALLBACK_KERNEL_BUILDER_CLASS =
-            "com.easyconfig.builders.DefaultKernelBuilder";
+    private static final String FALLBACK_KERNEL_BUILDER_CLASS = "com.easyconfig.builders.DefaultKernelBuilder";
+    private static final String FALLBACK_STORAGE_BUILDER_CLASS = "com.easyconfig.builders.storage.MysqlConfigLoaderBuilder";
 
     private final Map<Class<? extends ECBuilder<?>>, Supplier<? extends Buildable>>
             builders = new HashMap<>();
@@ -26,6 +27,7 @@ public enum BuildersSingleton {
             // Keep this list in alphabetical order by fallback variable name
 
             registerBuilder(KernelBuilder.class, FALLBACK_KERNEL_BUILDER_CLASS);
+            registerBuilder(ConfigLoaderBuilder.class, FALLBACK_STORAGE_BUILDER_CLASS);
 
         } catch (Throwable e) {
             Logger LOGGER = LoggerFactory.getLogger(BuildersSingleton.class);

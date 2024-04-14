@@ -1,9 +1,11 @@
 package com.easyconfig.store;
 
-public interface ConfigLoader {
+import com.easyconfig.builders.Buildable;
+
+public interface ConfigLoader extends Buildable {
 
     /**
-     * 加载配置
+     * load config by unique id
      * @param id
      * @return
      */
