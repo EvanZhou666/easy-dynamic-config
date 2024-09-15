@@ -2,12 +2,14 @@ package com.easyconfig.store;
 
 import com.easyconfig.builders.Buildable;
 
+import java.util.Properties;
+
 public interface ConfigLoader extends Buildable {
 
     /**
-     * load config by unique id
-     * @param id
+     * load config by config tag
+     * @param cfTag config tag
      * @return
      */
-    String load(String id);
+    Properties load(String cfTag);
 }

@@ -1,12 +1,13 @@
 package com.easyconfig;
 
-import com.alibaba.fastjson.JSONObject;
+import com.easyconfig.converter.PropertiesJavaBeanConverter;
 import com.easyconfig.store.ConfigLoader;
 import com.easyconfig.store.Storage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
+import java.util.Properties;
 
 public class DefaultKernel implements Kernel {
 
@@ -22,41 +23,22 @@ public class DefaultKernel implements Kernel {
 
     @Override
     public <T> T getProps(Class<T> clazz) {
-        String id = clazz.getSimpleName();
-        T t = storage.<T>get(id);
+        String tagName = clazz.getSimpleName();
+        T t = storage.<T>get(tagName);
         if (t != null) {
             return t;
         }
         synchronized (this) {
-            t = storage.get(id);
+            t = storage.get(tagName);
             if (t != null) {
                 return t;
             }
 
-            // load config
-            String load = configLoader.load(id);
-            if (load == null || "".equals(load)) {
-                try {
-                    T instance = clazz.newInstance();
-                    storage.put(id, instance);
-                } catch (InstantiationException | IllegalAccessException e) {
-                    // skip...
-                }
-            } else {
-                T object = JSONObject.parseObject(load, clazz);
-                if (object != null) {
-                    storage.put(id, object);
-                } else {
-                    // put Empty Object
-                    try {
-                        storage.put(id, clazz.newInstance());
-                    } catch (InstantiationException | IllegalAccessException e) {
-                        // skip...
-                    }
-                }
-            }
+            Properties properties = configLoader.load(tagName);
+            T javaBean = PropertiesJavaBeanConverter.convertToJavaBean(properties, clazz);
+            storage.put(tagName, javaBean);
         }
-        return storage.get(id);
+        return storage.get(tagName);
     }
 
     /**
