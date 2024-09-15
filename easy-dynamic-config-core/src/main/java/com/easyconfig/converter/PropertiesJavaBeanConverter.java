@@ -1,5 +1,8 @@
 package com.easyconfig.converter;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.*;
 import java.util.Properties;
 import java.util.*;
@@ -9,6 +12,8 @@ import java.util.*;
  * @createTime 2024/8/1 19:27
  */
 public class PropertiesJavaBeanConverter {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesJavaBeanConverter.class);
 
     /**
      * 将属性转换为 Java Bean
@@ -45,73 +50,166 @@ public class PropertiesJavaBeanConverter {
      * @throws IllegalAccessException 如果字段不可访问
      */
     private static <T> void setProperty(T bean, String propertyName, String propertyValue)
-            throws NoSuchFieldException, IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
+            throws NoSuchFieldException, IllegalAccessException {
         String[] nestedProperties = propertyName.split("\\.");
 
         Object currentObject = bean;
         Class<?> currentClass = bean.getClass();
 
-        for (int i = 0; i < nestedProperties.length; i++) {
-            String nestedPropertyName = nestedProperties[i];
+        String nestedPropertyName = nestedProperties[0];
 
-            if (nestedPropertyName.contains("[")) {
-                // 处理数组或集合索引
-                String basePropertyName = nestedPropertyName.substring(0, nestedPropertyName.indexOf('['));
-                String indexStr = nestedPropertyName.substring(nestedPropertyName.indexOf('[') + 1, nestedPropertyName.indexOf(']'));
-                int index = Integer.parseInt(indexStr);
+        if (nestedPropertyName.contains("[")) {
+            // 处理数组或集合索引
+            String basePropertyName = nestedPropertyName.substring(0, nestedPropertyName.indexOf('['));
+            String indexStr = nestedPropertyName.substring(nestedPropertyName.indexOf('[') + 1, nestedPropertyName.indexOf(']'));
+            int index = Integer.parseInt(indexStr);
+            Field field = getField(currentClass, basePropertyName);
+            field.setAccessible(true);
 
-                Field field = getField(currentClass, basePropertyName);
-                field.setAccessible(true);
-
-                Object fieldValue = field.get(currentObject);
-                if (fieldValue == null) {
-                    fieldValue = instantiateCollection(field.getType());
-                    Type fieldType = field.getGenericType();
-                    if (fieldType instanceof ParameterizedType) {
-                        // 处理泛型类型（如 List<T>）
-                        ParameterizedType parameterizedType = (ParameterizedType) fieldType;
-                        Type[] typeArgs = parameterizedType.getActualTypeArguments();
-                        if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
-                            Class<?> elementType = (Class<?>) typeArgs[0];
-//                            fieldValue = instantiateCollection(field.getType());
-                            field.set(currentObject, fieldValue);
+            Object collectionValue = field.get(currentObject);
+            if (collectionValue == null) {
+                collectionValue = instantiateCollection(field.getType());
+                field.set(currentObject, collectionValue);
+            }
+            Type fieldType = field.getGenericType();
+            if (fieldType instanceof ParameterizedType) {
+                // 处理泛型类型（如 List<T>）
+                ParameterizedType parameterizedType = (ParameterizedType) fieldType;
+                Type[] typeArgs = parameterizedType.getActualTypeArguments();
+                if (typeArgs.length > 0 && typeArgs[0] instanceof Class) {
+                    Class<?> elementType = (Class<?>) typeArgs[0];
+                    if (isWrapperPrimitive(elementType) || elementType.isPrimitive()) { // 基本类型数据
+                        ((Collection<Object>) collectionValue).add(primitiveOrWrapperPrimitive(elementType, propertyValue));
+                    } else { // 自定义类型（pojo）
+                        Object[] objects = ((Collection<Object>) collectionValue).toArray();
+                        while (index > objects.length - 1) { // 因为处理属性名的时候是乱序的，不一定按照p[0].name, p[1].name的顺序处理
+                            Object subBean = instantiateBean(elementType);
+                            ((Collection<Object>) collectionValue).add(subBean);
+                            objects = ((Collection<Object>) collectionValue).toArray();
                         }
-                    }
-                    if (field.getType().isArray()) {
-                        // 处理数组类型
-                        Class<?> componentType = field.getType().getComponentType();
-                        fieldValue = Array.newInstance(componentType, index + 1);
-                        field.set(currentObject, fieldValue);
-                    } else {
-                        throw new IllegalArgumentException("不支持的类型: " + field.getType().getName());
-                    }
-                }
 
-                currentObject = getArrayElementOrCollectionElement(fieldValue, index);
-                currentClass = currentObject.getClass();
-            } else {
-                // 处理非数组属性
-                Field field = getField(currentClass, nestedPropertyName);
-                field.setAccessible(true);
+                        if (hasNextPropertiesName(propertyName)) {
+                            setProperty(objects[index], splitNextPropertiesName(propertyName), propertyValue);
+                        }
 
-                // 如果是最后一级，则设置值
-                if (i == nestedProperties.length - 1) {
-                    Class<?> fieldType = field.getType();
-                    Object value = convertToType(propertyValue, fieldType);
-                    field.set(currentObject, value);
-                } else {
-                    // 如果不是最后一级，则获取或创建嵌套对象
-                    Object nestedObject = field.get(currentObject);
-                    if (nestedObject == null) {
-                        nestedObject = field.getType().getDeclaredConstructor().newInstance();
-                        field.set(currentObject, nestedObject);
                     }
-                    currentObject = nestedObject;
-                    currentClass = currentObject.getClass();
+
                 }
             }
+
+        } else {
+            Field field = getField(currentClass, nestedPropertyName);
+            field.setAccessible(true);
+            if (field.getType().isPrimitive() || isWrapperPrimitive(field.getType())) { // 如果是基本类型
+                if (Integer.class == field.getType() || int.class == field.getType()) {
+                    field.set(bean, Integer.parseInt(propertyValue));
+                } else if (Long.class == field.getType() || long.class == field.getType()) {
+                    field.set(bean, Long.parseLong(propertyValue));
+                } else if (Double.class == field.getType() || double.class == field.getType()) {
+                    field.set(bean, Double.parseDouble(propertyValue));
+                } else if (Float.class == field.getType() || float.class == field.getType()) {
+                    field.set(bean, Float.parseFloat(propertyValue));
+                } else if (String.class == field.getType()) {
+                    field.set(bean, propertyValue);
+                } else if (Boolean.class == field.getType() || boolean.class == field.getType()) {
+                    field.set(bean, Boolean.parseBoolean(propertyValue));
+                } else if (Character.class == field.getType() || char.class == field.getType()) {
+                    if (propertyValue.length() > 0) {
+                        field.set(bean, Character.valueOf(propertyValue.charAt(0)));
+                    }
+                }
+
+            } else { // 对象类型
+                Object nestedBean = null;
+                if ((nestedBean = field.get(bean)) == null) {
+                    nestedBean = instantiateBean(field.getType());
+                }
+
+                if (hasNextPropertiesName(propertyName)) {
+                    setProperty(nestedBean, splitNextPropertiesName(propertyName), propertyValue);
+                }
+                field.set(currentObject, nestedBean);
+            }
+
+        }
+
+    }
+
+    private static boolean isWrapperPrimitive(Class<?> type) {
+        if (Integer.class == type || Long.class == type || String.class == type || Double.class == type
+                || Float.class == type || Character.class == type  || Byte.class == type || Boolean.class == type) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * bean初始化
+     * @param clazz
+     * @return
+     * @param <T>
+     */
+    private static <T> T instantiateBean(Class<T> clazz) {
+        try {
+            T bean = clazz.getDeclaredConstructor().newInstance(); // 实例化 Java Bean
+            return bean;
+        } catch (Exception e) {
+            LOGGER.error("实例化bean出错{}", clazz, e);
+            return null;
         }
     }
+
+    /**
+     * 类型转换
+     * @param type
+     * @param value
+     * @return
+     */
+    private static Object primitiveOrWrapperPrimitive(Class<?> type, String value) {
+        if (Integer.class == type || int.class == type) {
+            return Integer.parseInt(value);
+        } else if (Long.class == type || long.class == type) {
+            return Long.parseLong(value);
+        } else if (Double.class == type || double.class == type) {
+            return Double.parseDouble(value);
+        } else if (Float.class == type || float.class ==  type) {
+            return Float.parseFloat(value);
+        } else if (String.class == type) {
+            return value;
+        } else if (Boolean.class == type || boolean.class == type) {
+            return Boolean.parseBoolean(value);
+        } else if (Character.class == type || char.class == type) {
+            if (value.length() > 0) {
+                return Character.valueOf(value.charAt(0));
+            }
+        }
+        return value;
+    }
+
+    /**
+     * 获取下一级属性名
+     * @param propertyName
+     */
+
+    private static boolean hasNextPropertiesName(String propertyName) {
+        if (propertyName.indexOf(".") != -1) {
+            return true;
+        }
+        return false;
+    }
+
+
+
+    /**
+     * 获取下一级属性名
+     * @param propertyName
+     */
+
+    private static String splitNextPropertiesName(String propertyName) {
+        return propertyName.substring(propertyName.indexOf(".") + 1);
+    }
+
+
 
     /**
      * 实例化指定元素类型的集合。
