@@ -13,4 +13,13 @@ public interface Kernel extends Buildable {
      */
     <T> T getProps(Class<T> clazz);
 
+    /**
+     * 更新属性配置
+     * @param clazz
+     * @param cfName
+     * @return
+     * @param <T>
+     */
+    <T> void updateProperties(Class<T> clazz, String cfName);
+
 }
