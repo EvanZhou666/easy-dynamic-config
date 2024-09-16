@@ -11,7 +11,6 @@ public class Example_01_LoadProps {
         System.out.println(demoConfig);
         DemoConfig demoConfig2 = kernel.getProps(DemoConfig.class);
         System.out.println(demoConfig2);
-        System.out.println(demoConfig == demoConfig2);
     }
 
 }

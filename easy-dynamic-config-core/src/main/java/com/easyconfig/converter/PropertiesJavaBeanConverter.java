@@ -4,8 +4,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Properties;
 import java.util.*;
+import java.util.regex.Pattern;
+
 /**
  * @author evan zhou
  * @version 1.0.0
@@ -14,6 +22,12 @@ import java.util.*;
 public class PropertiesJavaBeanConverter {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PropertiesJavaBeanConverter.class);
+
+    private static final Pattern DATE_TIME_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$");
+    private static final Pattern DATE_PATTERN = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}$");
+    private static final DateTimeFormatter FORMATTER1 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter FORMATTER2 = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
 
     /**
      * 将属性转换为 Java Bean
@@ -83,6 +97,8 @@ public class PropertiesJavaBeanConverter {
                     Class<?> elementType = (Class<?>) typeArgs[0];
                     if (isWrapperPrimitive(elementType) || elementType.isPrimitive()) { // 基本类型数据
                         ((Collection<Object>) collectionValue).add(primitiveOrWrapperPrimitive(elementType, propertyValue));
+                    } else if (BigDecimal.class == elementType) {
+                        ((Collection<Object>) collectionValue).add(new BigDecimal(propertyValue));
                     } else { // 自定义类型（pojo）
                         Object[] objects = ((Collection<Object>) collectionValue).toArray();
                         while (index > objects.length - 1) { // 因为处理属性名的时候是乱序的，不一定按照p[0].name, p[1].name的顺序处理
@@ -107,22 +123,23 @@ public class PropertiesJavaBeanConverter {
             }
             field.setAccessible(true);
             if (field.getType().isPrimitive() || isWrapperPrimitive(field.getType())) { // 如果是基本类型
-                if (Integer.class == field.getType() || int.class == field.getType()) {
-                    field.set(bean, Integer.parseInt(propertyValue));
-                } else if (Long.class == field.getType() || long.class == field.getType()) {
-                    field.set(bean, Long.parseLong(propertyValue));
-                } else if (Double.class == field.getType() || double.class == field.getType()) {
-                    field.set(bean, Double.parseDouble(propertyValue));
-                } else if (Float.class == field.getType() || float.class == field.getType()) {
-                    field.set(bean, Float.parseFloat(propertyValue));
-                } else if (String.class == field.getType()) {
-                    field.set(bean, propertyValue);
-                } else if (Boolean.class == field.getType() || boolean.class == field.getType()) {
-                    field.set(bean, Boolean.parseBoolean(propertyValue));
-                } else if (Character.class == field.getType() || char.class == field.getType()) {
-                    if (propertyValue.length() > 0) {
-                        field.set(bean, Character.valueOf(propertyValue.charAt(0)));
+                field.set(bean, primitiveOrWrapperPrimitive(field.getType(), propertyValue));
+            } else if (field.getType() == BigDecimal.class) {
+                field.set(bean, new BigDecimal(propertyValue));
+            } else if (isTimeType(field.getType())) {
+                try {
+                    if (propertyValue != null && !"".equals(propertyValue)) {
+                        LocalDateTime localDateTime = parseFromString(propertyValue);
+                        field.set(bean, ajust2ProperType(field.getType(), localDateTime));
                     }
+                } catch (Exception e) {
+                    try {
+                        LocalDateTime localDateTime = parseFromTimestamp(Long.parseLong(propertyValue));
+                        field.set(bean, ajust2ProperType(field.getType(), localDateTime));
+                    } catch (Exception ex) {
+
+                    }
+
                 }
 
             } else { // 对象类型
@@ -141,6 +158,11 @@ public class PropertiesJavaBeanConverter {
 
     }
 
+
+    private static boolean isTimeType(Class<?> type) {
+        return LocalDateTime.class == type || LocalDate.class == type || Date.class == type;
+    }
+
     private static boolean isWrapperPrimitive(Class<?> type) {
         if (Integer.class == type || Long.class == type || String.class == type || Double.class == type
                 || Float.class == type || Character.class == type  || Byte.class == type || Boolean.class == type) {
@@ -156,8 +178,8 @@ public class PropertiesJavaBeanConverter {
      * @param <T>
      */
     private static <T> T instantiateBean(Class<T> clazz, Object outerBean) {
+        T bean = null;
         try {
-            T bean = null;
             if (clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers())) {
                 bean = clazz.getDeclaredConstructor(outerBean.getClass()).newInstance(outerBean);
             } else {
@@ -165,8 +187,8 @@ public class PropertiesJavaBeanConverter {
             }
             return bean;
         } catch (Exception e) {
-            LOGGER.error("实例化bean出错", e);
-            return null;
+            LOGGER.error("instantiateBean error", e);
+            return bean;
         }
     }
 
@@ -311,6 +333,42 @@ public class PropertiesJavaBeanConverter {
                 return null;
             }
         }
+    }
+
+    public static LocalDateTime parseFromString(String dateTimeString) {
+        if (DATE_TIME_PATTERN.matcher(dateTimeString).matches()) {
+            // 日期时间格式
+            return LocalDateTime.parse(dateTimeString, FORMATTER1);
+        } else if (DATE_PATTERN.matcher(dateTimeString).matches()) {
+            return LocalDate.parse(dateTimeString, FORMATTER2).atStartOfDay();
+        } else {
+            return null;
+        }
+    }
+
+    public static LocalDateTime parseFromTimestamp(long timestamp) {
+        return LocalDateTime.ofInstant(Instant.ofEpochSecond(timestamp), ZoneId.systemDefault());
+    }
+
+    /**
+     * 时间类型自动调整
+     * @param type
+     * @param localDateTime
+     * @return
+     */
+    private static Object ajust2ProperType(Class<?> type, LocalDateTime localDateTime) {
+        if (localDateTime == null) {
+            return null;
+        }
+
+        if (LocalDateTime.class == type) {
+            return localDateTime;
+        } else if (LocalDate.class == type) {
+            return localDateTime.toLocalDate();
+        } else if (Date.class == type){
+            return Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
+        }
+        return null;
     }
 
 }
