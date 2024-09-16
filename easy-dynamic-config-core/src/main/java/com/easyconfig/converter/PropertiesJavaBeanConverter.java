@@ -64,6 +64,9 @@ public class PropertiesJavaBeanConverter {
             String indexStr = nestedPropertyName.substring(nestedPropertyName.indexOf('[') + 1, nestedPropertyName.indexOf(']'));
             int index = Integer.parseInt(indexStr);
             Field field = getField(currentClass, basePropertyName);
+            if (field == null) {
+                return;
+            }
             field.setAccessible(true);
 
             Object collectionValue = field.get(currentObject);
@@ -83,7 +86,7 @@ public class PropertiesJavaBeanConverter {
                     } else { // 自定义类型（pojo）
                         Object[] objects = ((Collection<Object>) collectionValue).toArray();
                         while (index > objects.length - 1) { // 因为处理属性名的时候是乱序的，不一定按照p[0].name, p[1].name的顺序处理
-                            Object subBean = instantiateBean(elementType);
+                            Object subBean = instantiateBean(elementType, currentObject);
                             ((Collection<Object>) collectionValue).add(subBean);
                             objects = ((Collection<Object>) collectionValue).toArray();
                         }
@@ -99,6 +102,9 @@ public class PropertiesJavaBeanConverter {
 
         } else {
             Field field = getField(currentClass, nestedPropertyName);
+            if (field == null) {
+                return;
+            }
             field.setAccessible(true);
             if (field.getType().isPrimitive() || isWrapperPrimitive(field.getType())) { // 如果是基本类型
                 if (Integer.class == field.getType() || int.class == field.getType()) {
@@ -122,7 +128,7 @@ public class PropertiesJavaBeanConverter {
             } else { // 对象类型
                 Object nestedBean = null;
                 if ((nestedBean = field.get(bean)) == null) {
-                    nestedBean = instantiateBean(field.getType());
+                    nestedBean = instantiateBean(field.getType(), currentObject);
                 }
 
                 if (hasNextPropertiesName(propertyName)) {
@@ -149,12 +155,17 @@ public class PropertiesJavaBeanConverter {
      * @return
      * @param <T>
      */
-    private static <T> T instantiateBean(Class<T> clazz) {
+    private static <T> T instantiateBean(Class<T> clazz, Object outerBean) {
         try {
-            T bean = clazz.getDeclaredConstructor().newInstance(); // 实例化 Java Bean
+            T bean = null;
+            if (clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers())) {
+                bean = clazz.getDeclaredConstructor(outerBean.getClass()).newInstance(outerBean);
+            } else {
+                bean = clazz.getDeclaredConstructor().newInstance(); // 实例化 Java Bean
+            }
             return bean;
         } catch (Exception e) {
-            LOGGER.error("实例化bean出错{}", clazz, e);
+            LOGGER.error("实例化bean出错", e);
             return null;
         }
     }
@@ -297,7 +308,7 @@ public class PropertiesJavaBeanConverter {
             if (superClass != null) {
                 return getField(superClass, propertyName);
             } else {
-                throw e;
+                return null;
             }
         }
     }

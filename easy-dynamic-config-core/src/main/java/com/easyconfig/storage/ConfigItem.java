@@ -11,42 +11,98 @@ public class ConfigItem {
      * 配置标签
      */
 
-    String cf_tag;
+    String cfTag;
     /**
      * 配置名称
      */
-    String cf_name;
+    String cfName;
 
     /**
      * 配置详情
      */
-    String cf_value;
+    String cfValue;
 
     /**
      * 配置描述
      */
-    String cf_description;
+    String cfDescription;
 
     /**
      * 创建时间
      */
-    LocalDateTime cf_create_time;
+    LocalDateTime cfCreateTime;
 
     /**
      * 修改时间
      */
-    LocalDateTime cf_update_time;
+    LocalDateTime cfUpdateTime;
 
     public ConfigItem() {
     }
 
-    public ConfigItem(Long id, String cf_tag, String cf_name, String cf_value, String cf_description, LocalDateTime cf_create_time, LocalDateTime cf_update_time) {
+    public ConfigItem(Long id, String cfTag, String cfName, String cfValue, String cfDescription, LocalDateTime cfCreateTime, LocalDateTime cfUpdateTime) {
         this.id = id;
-        this.cf_tag = cf_tag;
-        this.cf_name = cf_name;
-        this.cf_value = cf_value;
-        this.cf_description = cf_description;
-        this.cf_create_time = cf_create_time;
-        this.cf_update_time = cf_update_time;
+        this.cfTag = cfTag;
+        this.cfName = cfName;
+        this.cfValue = cfValue;
+        this.cfDescription = cfDescription;
+        this.cfCreateTime = cfCreateTime;
+        this.cfUpdateTime = cfUpdateTime;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getCfTag() {
+        return cfTag;
+    }
+
+    public void setCfTag(String cfTag) {
+        this.cfTag = cfTag;
+    }
+
+    public String getCfName() {
+        return cfName;
+    }
+
+    public void setCfName(String cfName) {
+        this.cfName = cfName;
+    }
+
+    public String getCfValue() {
+        return cfValue;
+    }
+
+    public void setCfValue(String cfValue) {
+        this.cfValue = cfValue;
+    }
+
+    public String getCfDescription() {
+        return cfDescription;
+    }
+
+    public void setCfDescription(String cfDescription) {
+        this.cfDescription = cfDescription;
+    }
+
+    public LocalDateTime getCfCreateTime() {
+        return cfCreateTime;
+    }
+
+    public void setCfCreateTime(LocalDateTime cfCreateTime) {
+        this.cfCreateTime = cfCreateTime;
+    }
+
+    public LocalDateTime getCfUpdateTime() {
+        return cfUpdateTime;
+    }
+
+    public void setCfUpdateTime(LocalDateTime cfUpdateTime) {
+        this.cfUpdateTime = cfUpdateTime;
     }
 }

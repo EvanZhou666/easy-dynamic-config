@@ -29,6 +29,9 @@ public class MysqlConfigLoader implements ConfigLoader {
 
     private Properties convertToProperties(List<ConfigItem> configItems) {
         Properties properties = new Properties();
+        for (ConfigItem configItem : configItems) {
+            properties.put(configItem.cfName, configItem.cfValue);
+        }
         return properties;
     }
 
@@ -50,7 +53,9 @@ public class MysqlConfigLoader implements ConfigLoader {
                 String cf_description = resultSet.getString("cf_description");
                 Timestamp createTimestamp = resultSet.getTimestamp("cf_create_time");
                 Timestamp updateTimestamp = resultSet.getTimestamp("cf_update_time");
-                ConfigItem node = new ConfigItem(id, cf_tag, cf_name, cf_value, cf_description, createTimestamp.toLocalDateTime(), updateTimestamp.toLocalDateTime());
+                ConfigItem node = new ConfigItem(id, cf_tag, cf_name, cf_value, cf_description,
+                        createTimestamp !=null ?createTimestamp.toLocalDateTime() : null,
+                        updateTimestamp !=null ?updateTimestamp.toLocalDateTime() : null);
                 configItemList.add(node);
             }
         } catch (SQLException e) {
